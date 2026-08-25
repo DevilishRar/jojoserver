@@ -1,0 +1,13 @@
+{
+  "name": "jojo-server",
+  "version": "1.0.0",
+  "description": "JoJo's Bizarre Adventure Discord Server - Builder, Bot, and Message Sender",
+  "main": "bot.js",
+  "scripts": {
+    "bot": "node bot.js",
+    "dev": "node bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}

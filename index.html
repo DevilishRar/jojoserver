@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JoJo Server Builder</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
+    .container { max-width: 700px; margin: 0 auto; padding: 40px 20px; }
+    h1 { font-size: 2rem; color: #fff; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+    .status { text-align: center; padding: 8px 16px; border-radius: 6px; background: #1a1a2e; color: #3498db; margin-bottom: 30px; font-size: 0.9rem; }
+    .card { background: #12121a; border: 1px solid #1e1e2e; border-radius: 8px; padding: 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 1rem; color: #fff; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e1e2e; }
+    .hint { color: #888; font-size: 0.85rem; margin-bottom: 12px; }
+    .input-row { display: flex; gap: 8px; }
+    .input-row input { flex: 1; background: #1a1a2e; border: 1px solid #2a2a3e; color: #e0e0e0; padding: 10px 14px; border-radius: 6px; font-family: monospace; font-size: 0.9rem; outline: none; }
+    .input-row input:focus { border-color: #9b59b6; }
+    button { background: #9b59b6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: monospace; font-size: 0.9rem; font-weight: bold; white-space: nowrap; }
+    button:hover { background: #8e44ad; }
+    button:disabled { background: #555; cursor: not-allowed; }
+    #log { background: #0d0d1a; border-radius: 6px; padding: 12px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; line-height: 1.6; color: #ccc; white-space: pre-wrap; }
+    textarea { width: 100%; height: 200px; background: #0d0d1a; border: 1px solid #2a2a3e; color: #e0e0e0; font-family: monospace; font-size: 0.8rem; padding: 12px; border-radius: 6px; resize: vertical; outline: none; margin-bottom: 12px; }
+    textarea:focus { border-color: #9b59b6; }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-copy { background: #27ae60; }
+    .btn-copy:hover { background: #219a52; }
+    .log-ok { color: #2ecc71; }
+    .log-err { color: #e74c3c; }
+    .log-info { color: #3498db; }
+    .footer { text-align: center; color: #555; font-size: 0.8rem; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>JoJo's Bizarre Adventure</h1>
+    <p class="subtitle">Discord Server Builder</p>
+    <div class="status" id="status">Ready</div>
+
+    <div class="card">
+      <h2>Server ID</h2>
+      <p class="hint">Enter the Discord server ID to build on. All existing channels and roles will be cleared first.</p>
+      <div class="input-row">
+        <input type="text" id="guildId" placeholder="e.g. 1539404742055166045" autocomplete="off">
+        <button id="buildBtn" onclick="startBuild()">Build Server</button>
+      </div>
+    </div>
+
+    <div class="card" id="logCard" style="display:none;">
+      <h2>Build Log</h2>
+      <div id="log"></div>
+    </div>
+
+    <div class="card" id="envCard" style="display:none;">
+      <h2>Environment Variables</h2>
+      <p class="hint">Copy these into Vercel env vars, then redeploy the bot</p>
+      <textarea id="envOutput" readonly></textarea>
+      <div class="btn-row">
+        <button class="btn-copy" onclick="copyEnv()">Copy to Clipboard</button>
+      </div>
+    </div>
+
+    <div class="card" id="sendCard" style="display:none;">
+      <h2>Send Messages</h2>
+      <p class="hint">After setting env vars and redeploying, click to send all embeds</p>
+      <button id="sendBtn" onclick="sendMessages()">Send All Messages</button>
+    </div>
+
+    <div class="footer">JoJo Server Builder v1.0</div>
+  </div>
+
+  <script>
+    var envData = '';
+
+    function log(msg, cls) {
+      var el = document.getElementById('log');
+      var s = document.createElement('span');
+      s.className = cls || '';
+      s.textContent = msg + '\n';
+      el.appendChild(s);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setStatus(msg, color) {
+      var s = document.getElementById('status');
+      s.textContent = msg;
+      s.style.color = color || '#3498db';
+    }
+
+    async function startBuild() {
+      var guildId = document.getElementById('guildId').value.trim();
+      if (!guildId) { alert('Enter a server ID'); return; }
+
+      var btn = document.getElementById('buildBtn');
+      btn.disabled = true;
+      btn.textContent = 'Building...';
+      setStatus('Nuking & building server...', '#e67e22');
+
+      document.getElementById('logCard').style.display = '';
+      document.getElementById('log').innerHTML = '';
+
+      log('Sending build request...', 'log-info');
+
+      try {
+        var resp = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guild_id: guildId, secret: 'jojo-build-2026' })
+        });
+
+        var data = await resp.json();
+
+        if (!resp.ok || data.error) {
+          log('ERROR: ' + (data.error || resp.status), 'log-err');
+          if (data.log) data.log.forEach(function(l) { log('  ' + l, 'log-err'); });
+          setStatus('Build failed', '#e74c3c');
+          btn.disabled = false;
+          btn.textContent = 'Build Server';
+          return;
+        }
+
+        if (data.log) data.log.forEach(function(l) { log(l, 'log-ok'); });
+
+        if (data.env) {
+          envData = data.env;
+          document.getElementById('envCard').style.display = '';
+          document.getElementById('envOutput').value = data.env;
+          log('\n.env output ready', 'log-info');
+        }
+
+        document.getElementById('sendCard').style.display = '';
+        setStatus('Build complete — set env vars in Vercel, redeploy, then send', '#2ecc71');
+
+      } catch (e) {
+        log('ERROR: ' + e.message, 'log-err');
+        setStatus('Build failed', '#e74c3c');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Build Server';
+    }
+
+    function copyEnv() {
+      if (!envData) return;
+      var ta = document.getElementById('envOutput');
+      ta.select();
+      document.execCommand('copy');
+      try { navigator.clipboard.writeText(envData); } catch(e) {}
+      setStatus('Copied to clipboard', '#2ecc71');
+    }
+
+    async function sendMessages() {
+      var btn = document.getElementById('sendBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      setStatus('Sending messages...', '#e67e22');
+      log('\nSending all messages...', 'log-info');
+
+      try {
+        var resp = await fetch('https://architect-henna-eta.vercel.app/api/jojo-send-messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret: 'jojo-send-messages-2026' })
+        });
+
+        var data = await resp.json();
+
+        if (!resp.ok || data.error) {
+          log('ERROR: ' + (data.error || resp.status), 'log-err');
+          if (data.log) data.log.forEach(function(l) { log('  ' + l, 'log-err'); });
+          setStatus('Send failed — did you set env vars and redeploy?', '#e74c3c');
+          btn.disabled = false;
+          btn.textContent = 'Send All Messages';
+          return;
+        }
+
+        if (data.log) data.log.forEach(function(l) { log(l, 'log-ok'); });
+        setStatus('All messages sent!', '#2ecc71');
+
+      } catch (e) {
+        log('ERROR: ' + e.message, 'log-err');
+        setStatus('Send failed', '#e74c3c');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Send All Messages';
+    }
+  </script>
+</body>
+</html>
