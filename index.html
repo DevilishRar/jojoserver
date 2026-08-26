@@ -301,10 +301,6 @@
     }
 
     async function clearMessages() {
-      var serverId = document.getElementById('guildId').value.trim();
-      if (!serverId) { alert('Enter server ID'); return; }
-      if (!confirm('Delete ALL bot messages from every channel? This cannot be undone.')) return;
-
       var btn = document.getElementById('clearBtn');
       btn.disabled = true;
       btn.textContent = 'Clearing...';
@@ -313,53 +309,16 @@
       setStatus('Clearing...', '#e67e22');
 
       try {
-        // Get all channel IDs from env
-        var r = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', {
+        var r = await fetch('https://architect-henna-eta.vercel.app/api/jojo-clear-messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phase: 3, guild_id: serverId, secret: 'jojo-build-2026' })
+          body: JSON.stringify({ secret: 'jojo-build-2026' })
         });
-        // Actually, we need channel IDs. Use the send endpoint to get them, or hardcode from env output.
-        // Simpler: just pass all known channel IDs from the env that was output earlier.
-        // For now, let's fetch channels from Discord directly via the builder.
-        var chRes = await fetch('https://architect-henna-eta.vercel.app/api/jojo-debug');
-        var chData = await chRes.json();
+        var d = await r.json();
 
-        // We don't have a direct channel list endpoint, so let's build one.
-        // Actually, let's use a different approach: call a dedicated clear endpoint with channel IDs.
-        // The user should have saved their channel IDs. Let's prompt or use env vars.
-        // Simplest: just send to clear endpoint and let it figure out channels.
-        log('Fetching channel list...', 'log-info');
-
-        // Actually, we need the channel IDs. Let's just pass them from the env output.
-        // For now, use a simple approach: ask the user to paste channel IDs or use all from env.
-        var envText = document.getElementById('envContent') ? document.getElementById('envContent').textContent : '';
-        var chIds = [];
-        var chMatches = envText.matchAll(/([A-Z_]+)_CHANNEL_ID=(\d+)/g);
-        for (var m of chMatches) {
-          chIds.push(m[2]);
-        }
-
-        if (!chIds.length) {
-          log('No channel IDs found. Build the server first to generate env output.', 'log-err');
-          setStatus('No channels found', '#e74c3c');
-          btn.disabled = false;
-          btn.textContent = 'Clear Bot Messages';
-          return;
-        }
-
-        log('Clearing ' + chIds.length + ' channels...', 'log-info');
-
-        var r2 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-clear-messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ channel_ids: chIds, secret: 'jojo-build-2026' })
-        });
-        var d2 = await r2.json();
-
-        if (d2.log) d2.log.forEach(function(l) { log(l, 'log-ok'); });
-        log('Done! Deleted ' + (d2.total_deleted || 0) + ' bot messages.', 'log-ok');
-        setStatus('Clear complete — ' + (d2.total_deleted || 0) + ' deleted', '#27ae60');
+        if (d.log) d.log.forEach(function(l) { log(l, 'log-ok'); });
+        log('Done! Deleted ' + (d.total_deleted || 0) + ' bot messages.', 'log-ok');
+        setStatus('Clear complete — ' + (d.total_deleted || 0) + ' deleted', '#27ae60');
       } catch (e) {
         log('ERROR: ' + e.message, 'log-err');
         setStatus('Clear failed', '#e74c3c');
