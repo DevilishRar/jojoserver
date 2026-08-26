@@ -83,6 +83,15 @@
       </div>
     </div>
 
+    <div class="card" id="syncCard">
+      <h2>Sync .env to Vercel</h2>
+      <p class="hint">Paste your .env file below, then click Sync. Deletes all old vars and creates new ones.</p>
+      <textarea id="envInput" rows="12" placeholder="# JoJo Server IDs&#10;DISCORD_GUILD_ID=123&#10;OWNER_ROLE_ID=456&#10;..."></textarea>
+      <div class="btn-row">
+        <button class="btn-red" id="syncBtn" onclick="syncEnv()">Delete All &amp; Sync Env</button>
+      </div>
+    </div>
+
     <div class="footer">JoJo Server Builder v1.0</div>
   </div>
 
@@ -298,6 +307,38 @@
 
       btn.disabled = false;
       btn.textContent = 'Send All Messages';
+    }
+
+    async function syncEnv() {
+      var envText = document.getElementById('envInput').value.trim();
+      if (!envText) { alert('Paste your .env content first'); return; }
+      if (!confirm('This will DELETE ALL existing Vercel env vars and replace them with the pasted content. Continue?')) return;
+
+      var btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.textContent = 'Syncing...';
+      showLogCard();
+      log('Syncing env vars to Vercel...', 'log-info');
+      setStatus('Syncing...', '#e67e22');
+
+      try {
+        var r = await fetch('https://architect-henna-eta.vercel.app/api/jojo-sync-env', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ env_content: envText, secret: 'jojo-build-2026' })
+        });
+        var d = await r.json();
+
+        if (d.log) d.log.forEach(function(l) { log(l, 'log-ok'); });
+        log('Sync complete! Created ' + (d.created || 0) + ', deleted ' + (d.deleted || 0), 'log-ok');
+        setStatus('Sync complete', '#27ae60');
+      } catch (e) {
+        log('ERROR: ' + e.message, 'log-err');
+        setStatus('Sync failed', '#e74c3c');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Delete All & Sync Env';
     }
 
     async function clearMessages() {
