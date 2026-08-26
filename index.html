@@ -168,63 +168,55 @@
       var btn = document.getElementById('buildBtn');
       btn.disabled = true;
       btn.textContent = 'Building...';
-      setStatus('Building server (4 phases)...', '#e67e22');
+      setStatus('Building server...', '#e67e22');
 
       showLogCard();
       var allRoles = {};
       var allChannels = {};
       var botUserId = null;
 
+      function mergeRoles(partial) { for (var k in partial) allRoles[k] = partial[k]; }
+      function buildBody(extra) { var b = { guild_id: guildId, secret: 'jojo-build-2026' }; for (var k in extra) b[k] = extra[k]; return JSON.stringify(b); }
+
       try {
         // Phase 1: Cleanup
-        log('Phase 1/4: Cleaning up...', 'log-info');
-        setStatus('Phase 1/4: Cleaning up...', '#e67e22');
-        var r1 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ guild_id: guildId, secret: 'jojo-build-2026', phase: 1 })
-        });
+        log('Phase 1: Cleaning up...', 'log-info'); setStatus('Phase 1: Cleaning up...', '#e67e22');
+        var r1 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: buildBody({ phase: 1 }) });
         var d1 = await r1.json();
-        if (!r1.ok || d1.error) { log('ERROR: ' + (d1.error || r1.status), 'log-err'); if (d1.log) d1.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at phase 1', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
+        if (!r1.ok || d1.error) { log('ERROR: ' + (d1.error || r1.status), 'log-err'); if (d1.log) d1.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
         if (d1.log) d1.log.forEach(function(l) { log(l, 'log-ok'); });
 
-        // Phase 2: Create roles
-        log('Phase 2/4: Creating roles...', 'log-info');
-        setStatus('Phase 2/4: Creating roles...', '#e67e22');
-        var r2 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ guild_id: guildId, secret: 'jojo-build-2026', phase: 2 })
-        });
-        var d2 = await r2.json();
-        if (!r2.ok || d2.error) { log('ERROR: ' + (d2.error || r2.status), 'log-err'); if (d2.log) d2.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at phase 2', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
-        if (d2.log) d2.log.forEach(function(l) { log(l, 'log-ok'); });
-        allRoles = d2.roles || {};
-        botUserId = d2.botUserId;
+        // Phase 2: Create roles in chunks
+        for (var sub = 0; sub < 5; sub++) {
+          log('Phase 2.' + sub + ': Creating roles chunk ' + (sub + 1) + '/5...', 'log-info'); setStatus('Phase 2: Creating roles (' + (sub + 1) + '/5)...', '#e67e22');
+          var r2 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: buildBody({ phase: 2, sub: sub }) });
+          var d2 = await r2.json();
+          if (!r2.ok || d2.error) { log('ERROR: ' + (d2.error || r2.status), 'log-err'); if (d2.log) d2.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at roles chunk ' + (sub + 1), '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
+          if (d2.log) d2.log.forEach(function(l) { log(l, 'log-ok'); });
+          mergeRoles(d2.roles || {});
+        }
+
+        // Phase 20: Order roles
+        log('Phase 2: Ordering roles...', 'log-info'); setStatus('Phase 2: Ordering roles...', '#e67e22');
+        var r20 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: buildBody({ phase: 20, roles: allRoles }) });
+        var d20 = await r20.json();
+        if (!r20.ok || d20.error) { log('ERROR: ' + (d20.error || r20.status), 'log-err'); setStatus('Build failed ordering roles', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
+        if (d20.log) d20.log.forEach(function(l) { log(l, 'log-ok'); });
+        botUserId = d20.botUserId;
 
         // Phase 3: Create channels
-        log('Phase 3/4: Creating channels...', 'log-info');
-        setStatus('Phase 3/4: Creating channels...', '#e67e22');
-        var r3 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ guild_id: guildId, secret: 'jojo-build-2026', phase: 3, roles: allRoles, botUserId: botUserId })
-        });
+        log('Phase 3: Creating channels...', 'log-info'); setStatus('Phase 3: Creating channels...', '#e67e22');
+        var r3 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: buildBody({ phase: 3, roles: allRoles, botUserId: botUserId }) });
         var d3 = await r3.json();
-        if (!r3.ok || d3.error) { log('ERROR: ' + (d3.error || r3.status), 'log-err'); if (d3.log) d3.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at phase 3', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
+        if (!r3.ok || d3.error) { log('ERROR: ' + (d3.error || r3.status), 'log-err'); if (d3.log) d3.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at channels', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
         if (d3.log) d3.log.forEach(function(l) { log(l, 'log-ok'); });
         allChannels = d3.channels || {};
 
         // Phase 4: Register commands
-        log('Phase 4/4: Registering commands...', 'log-info');
-        setStatus('Phase 4/4: Finalizing...', '#e67e22');
-        var r4 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ guild_id: guildId, secret: 'jojo-build-2026', phase: 4, roles: allRoles, channels: allChannels })
-        });
+        log('Phase 4: Registering commands...', 'log-info'); setStatus('Phase 4: Finalizing...', '#e67e22');
+        var r4 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: buildBody({ phase: 4, roles: allRoles, channels: allChannels }) });
         var d4 = await r4.json();
-        if (!r4.ok || d4.error) { log('ERROR: ' + (d4.error || r4.status), 'log-err'); if (d4.log) d4.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at phase 4', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
+        if (!r4.ok || d4.error) { log('ERROR: ' + (d4.error || r4.status), 'log-err'); if (d4.log) d4.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at commands', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
         if (d4.log) d4.log.forEach(function(l) { log(l, 'log-ok'); });
 
         if (d4.env) {
