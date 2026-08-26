@@ -20,6 +20,10 @@
     button { background: #9b59b6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: monospace; font-size: 0.9rem; font-weight: bold; white-space: nowrap; }
     button:hover { background: #8e44ad; }
     button:disabled { background: #555; cursor: not-allowed; }
+    .btn-validate { background: #3498db; }
+    .btn-validate:hover { background: #2980b9; }
+    .btn-green { background: #27ae60; }
+    .btn-green:hover { background: #219a52; }
     #log { background: #0d0d1a; border-radius: 6px; padding: 12px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; line-height: 1.6; color: #ccc; white-space: pre-wrap; }
     textarea { width: 100%; height: 200px; background: #0d0d1a; border: 1px solid #2a2a3e; color: #e0e0e0; font-family: monospace; font-size: 0.8rem; padding: 12px; border-radius: 6px; resize: vertical; outline: none; margin-bottom: 12px; }
     textarea:focus { border-color: #9b59b6; }
@@ -30,6 +34,12 @@
     .log-err { color: #e74c3c; }
     .log-info { color: #3498db; }
     .footer { text-align: center; color: #555; font-size: 0.8rem; margin-top: 30px; }
+    .validated-info { display: flex; align-items: center; gap: 12px; background: #0d1a0d; border: 1px solid #2ecc71; border-radius: 6px; padding: 12px; margin-top: 12px; }
+    .validated-info img { width: 48px; height: 48px; border-radius: 50%; }
+    .validated-info .name { color: #2ecc71; font-weight: bold; font-size: 1rem; }
+    .validated-info .count { color: #888; font-size: 0.85rem; }
+    .btn-row-main { display: flex; gap: 8px; margin-top: 12px; }
+    .actions-card { display: none; }
   </style>
 </head>
 <body>
@@ -40,15 +50,25 @@
 
     <div class="card">
       <h2>Server ID</h2>
-      <p class="hint">Enter the Discord server ID to build on. All existing channels and roles will be cleared first.</p>
+      <p class="hint">Enter the Discord server ID to build on.</p>
       <div class="input-row">
         <input type="text" id="guildId" placeholder="e.g. 1539404742055166045" autocomplete="off">
+        <button class="btn-validate" id="validateBtn" onclick="validateServer()">Validate Server ID</button>
+      </div>
+      <div id="validatedBox"></div>
+    </div>
+
+    <div class="card actions-card" id="actionsCard">
+      <h2>Actions</h2>
+      <p class="hint">Build creates channels & roles. Send pushes all embeds to the server.</p>
+      <div class="btn-row-main">
         <button id="buildBtn" onclick="startBuild()">Build Server</button>
+        <button class="btn-green" id="sendBtn" onclick="sendMessages()">Send All Messages</button>
       </div>
     </div>
 
     <div class="card" id="logCard" style="display:none;">
-      <h2>Build Log</h2>
+      <h2>Log</h2>
       <div id="log"></div>
     </div>
 
@@ -61,50 +81,12 @@
       </div>
     </div>
 
-    <div class="card" id="sendCard">
-      <h2>Send Messages</h2>
-      <p class="hint">Sends all embeds to the server channels using env var IDs</p>
-      <button id="sendBtn" onclick="sendMessages()">Send All Messages</button>
-    </div>
-
     <div class="footer">JoJo Server Builder v1.0</div>
   </div>
 
   <script>
     var envData = '';
-    var channelIds = null;
-
-    function mapChannelIds(channels) {
-      var ids = {};
-      var map = {
-        'rules': 'rules',
-        'announcements': 'announcements',
-        'role-select': 'role_select',
-        'general': 'general',
-        'vrchat-chat': 'vrchat_chat',
-        'content-ideas': 'content_ideas',
-        'bot-commands': 'bot_commands',
-        'general-chat': 'general_chat',
-        'music-share': 'music_share',
-        'media-share': 'media_share',
-        'phantom-blood-chat': 'phantom_blood_chat',
-        'battle-tendency-chat': 'battle_tendency_chat',
-        'stardust-chat': 'stardust_chat',
-        'diamond-chat': 'diamond_chat',
-        'golden-wind-chat': 'golden_wind_chat',
-        'stone-ocean-chat': 'stone_ocean_chat',
-        'sbr-chat': 'sbr_chat',
-        'jojolion-chat': 'jojolion_chat',
-      };
-      for (var key in channels) {
-        for (var pattern in map) {
-          if (key.toLowerCase().includes(pattern)) {
-            if (!ids[map[pattern]]) ids[map[pattern]] = channels[key];
-          }
-        }
-      }
-      return ids;
-    }
+    var guildValidated = false;
 
     function log(msg, cls) {
       var el = document.getElementById('log');
@@ -121,18 +103,75 @@
       s.style.color = color || '#3498db';
     }
 
-    async function startBuild() {
+    function showLogCard() {
+      var lc = document.getElementById('logCard');
+      lc.style.display = '';
+      document.getElementById('log').innerHTML = '';
+    }
+
+    async function validateServer() {
       var guildId = document.getElementById('guildId').value.trim();
       if (!guildId) { alert('Enter a server ID'); return; }
 
+      var btn = document.getElementById('validateBtn');
+      btn.disabled = true;
+      btn.textContent = 'Validating...';
+      setStatus('Checking server...', '#e67e22');
+
+      try {
+        var resp = await fetch('https://architect-henna-eta.vercel.app/api/jojo-validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guild_id: guildId, secret: 'jojo-validate-2026' })
+        });
+
+        var data = await resp.json();
+
+        if (!data.valid) {
+          document.getElementById('validatedBox').innerHTML = '';
+          setStatus(data.error || 'Invalid server', '#e74c3c');
+          document.getElementById('actionsCard').style.display = 'none';
+          guildValidated = false;
+          btn.disabled = false;
+          btn.textContent = 'Validate Server ID';
+          return;
+        }
+
+        guildValidated = true;
+        var iconHtml = data.icon
+          ? '<img src="' + data.icon + '" alt="icon">'
+          : '<div style="width:48px;height:48px;border-radius:50%;background:#5865f2;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">' + data.name.charAt(0) + '</div>';
+
+        document.getElementById('validatedBox').innerHTML =
+          '<div class="validated-info">' + iconHtml +
+          '<div><div class="name">' + data.name + '</div>' +
+          '<div class="count">' + (data.member_count || '?') + ' members</div></div></div>';
+
+        document.getElementById('actionsCard').style.display = '';
+        setStatus('Server validated — ready to build or send', '#2ecc71');
+        btn.disabled = false;
+        btn.textContent = 'Validate Server ID';
+
+      } catch (e) {
+        document.getElementById('validatedBox').innerHTML = '';
+        setStatus('Validation failed: ' + e.message, '#e74c3c');
+        document.getElementById('actionsCard').style.display = 'none';
+        guildValidated = false;
+        btn.disabled = false;
+        btn.textContent = 'Validate Server ID';
+      }
+    }
+
+    async function startBuild() {
+      if (!guildValidated) { alert('Validate the server first'); return; }
+
+      var guildId = document.getElementById('guildId').value.trim();
       var btn = document.getElementById('buildBtn');
       btn.disabled = true;
       btn.textContent = 'Building...';
       setStatus('Nuking & building server...', '#e67e22');
 
-      document.getElementById('logCard').style.display = '';
-      document.getElementById('log').innerHTML = '';
-
+      showLogCard();
       log('Sending build request...', 'log-info');
 
       try {
@@ -162,13 +201,7 @@
           log('\n.env output ready', 'log-info');
         }
 
-        if (data.channels) {
-          channelIds = mapChannelIds(data.channels);
-          log('Channel IDs mapped: ' + Object.keys(channelIds).join(', '), 'log-info');
-        }
-
-        document.getElementById('sendCard').style.display = '';
-        setStatus('Build complete — set env vars in Vercel, redeploy, then send', '#2ecc71');
+        setStatus('Build complete — send messages when ready', '#2ecc71');
 
       } catch (e) {
         log('ERROR: ' + e.message, 'log-err');
@@ -189,25 +222,21 @@
     }
 
     async function sendMessages() {
+      if (!guildValidated) { alert('Validate the server first'); return; }
+
       var btn = document.getElementById('sendBtn');
       btn.disabled = true;
       btn.textContent = 'Sending...';
       setStatus('Sending messages...', '#e67e22');
-      log('\nSending all messages...', 'log-info');
 
-      if (!channelIds) {
-        log('ERROR: No channel IDs — build the server first', 'log-err');
-        setStatus('Build first!', '#e74c3c');
-        btn.disabled = false;
-        btn.textContent = 'Send All Messages';
-        return;
-      }
+      showLogCard();
+      log('Sending all messages...', 'log-info');
 
       try {
         var resp = await fetch('https://architect-henna-eta.vercel.app/api/jojo-send-messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ secret: 'jojo-send-messages-2026', ids: channelIds })
+          body: JSON.stringify({ secret: 'jojo-send-messages-2026' })
         });
 
         var data = await resp.json();
