@@ -301,7 +301,7 @@
     }
 
     async function clearMessages() {
-      var serverId = document.getElementById('serverId').value.trim();
+      var serverId = document.getElementById('guildId').value.trim();
       if (!serverId) { alert('Enter server ID'); return; }
       if (!confirm('Delete ALL bot messages from every channel? This cannot be undone.')) return;
 
