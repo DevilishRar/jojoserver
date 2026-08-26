@@ -89,6 +89,7 @@
       <textarea id="envInput" rows="12" placeholder="# JoJo Server IDs&#10;DISCORD_GUILD_ID=123&#10;OWNER_ROLE_ID=456&#10;..."></textarea>
       <div class="btn-row">
         <button class="btn-red" id="syncBtn" onclick="syncEnv()">Delete All &amp; Sync Env</button>
+        <button class="btn-green" id="extractBtn" onclick="extractRoles()">Extract Role IDs from Server</button>
       </div>
     </div>
 
@@ -339,6 +340,39 @@
 
       btn.disabled = false;
       btn.textContent = 'Delete All & Sync Env';
+    }
+
+    async function extractRoles() {
+      var btn = document.getElementById('extractBtn');
+      btn.disabled = true;
+      btn.textContent = 'Extracting...';
+      showLogCard();
+      log('Extracting role IDs from Discord...', 'log-info');
+
+      try {
+        var r = await fetch('https://architect-henna-eta.vercel.app/api/jojo-extract-roles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guild_id: document.getElementById('guildId').value.trim() || '1542232461499441273' })
+        });
+        var d = await r.json();
+
+        if (d.success) {
+          document.getElementById('envInput').value = d.env;
+          log('Extracted ' + d.role_count + ' roles, ' + d.channel_count + ' channels', 'log-ok');
+          log('Env content pasted into the text area above. Review and click Sync.', 'log-ok');
+          setStatus('Extracted ' + d.role_count + ' roles', '#27ae60');
+        } else {
+          log('ERROR: ' + (d.error || 'unknown'), 'log-err');
+          setStatus('Extract failed', '#e74c3c');
+        }
+      } catch (e) {
+        log('ERROR: ' + e.message, 'log-err');
+        setStatus('Extract failed', '#e74c3c');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Extract Role IDs from Server';
     }
 
     async function clearMessages() {
