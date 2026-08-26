@@ -187,8 +187,11 @@
         if (d1.log) d1.log.forEach(function(l) { log(l, 'log-ok'); });
 
         // Phase 2: Create roles in chunks
-        for (var sub = 0; sub < 5; sub++) {
-          log('Phase 2.' + sub + ': Creating roles chunk ' + (sub + 1) + '/5...', 'log-info'); setStatus('Phase 2: Creating roles (' + (sub + 1) + '/5)...', '#e67e22');
+        var totalRoles = 187;
+        var perSub = 10;
+        var numChunks = Math.ceil(totalRoles / perSub);
+        for (var sub = 0; sub < numChunks; sub++) {
+          log('Phase 2.' + sub + ': Creating roles chunk ' + (sub + 1) + '/' + numChunks + '...', 'log-info'); setStatus('Phase 2: Creating roles (' + (sub + 1) + '/' + numChunks + ')...', '#e67e22');
           var r2 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: buildBody({ phase: 2, sub: sub }) });
           var d2 = await r2.json();
           if (!r2.ok || d2.error) { log('ERROR: ' + (d2.error || r2.status), 'log-err'); if (d2.log) d2.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at roles chunk ' + (sub + 1), '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
