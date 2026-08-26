@@ -222,6 +222,13 @@
         if (!r4.ok || d4.error) { log('ERROR: ' + (d4.error || r4.status), 'log-err'); if (d4.log) d4.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at commands', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
         if (d4.log) d4.log.forEach(function(l) { log(l, 'log-ok'); });
 
+        // Phase 5: Fix permissions
+        log('Phase 5: Fixing bot permissions...', 'log-info'); setStatus('Phase 5: Fixing permissions...', '#e67e22');
+        var r5 = await fetch('https://architect-henna-eta.vercel.app/api/jojo-builder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: buildBody({ phase: 5 }) });
+        var d5 = await r5.json();
+        if (!r5.ok || d5.error) { log('ERROR: ' + (d5.error || r5.status), 'log-err'); if (d5.log) d5.log.forEach(function(l) { log('  ' + l, 'log-err'); }); setStatus('Build failed at permissions', '#e74c3c'); btn.disabled = false; btn.textContent = 'Build Server'; return; }
+        if (d5.log) d5.log.forEach(function(l) { log(l, 'log-ok'); });
+
         if (d4.env) {
           envData = d4.env;
           document.getElementById('envCard').style.display = '';
